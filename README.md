@@ -1,67 +1,100 @@
-# BULLSEYE - AI-Powered Bovine Detection & Classification System
+# 🐂 BULLSEYE  
+### AI-Powered Real-Time Bovine Detection & Breed Classification  
 
-BULLSEYE integrates YOLOv8 for cow detection with a Hybrid DL based breed classifier for real-time cow detection and breed classification with a cutting-edge dark techie interface.
+> ⚡ A next-gen AI system combining **YOLOv8 detection** + **Hybrid Deep Learning breed classification**, built for precision livestock management in India.  
 
-## Setup
+[![Live Demo](https://img.shields.io/badge/🚀%20Live%20Demo-BULLSEYE-brightgreen)](https://bullseye-live-cattle-detection.onrender.com/)  
+[![Made with Python](https://img.shields.io/badge/Made%20with-Python-blue.svg)](https://www.python.org/)  
+[![Framework Flask](https://img.shields.io/badge/Framework-Flask-black.svg)](https://flask.palletsprojects.com/)  
+[![Framework Streamlit](https://img.shields.io/badge/Framework-Streamlit-red.svg)](https://streamlit.io/)  
+[![Model YOLOv8](https://img.shields.io/badge/Model-YOLOv8-green.svg)](https://github.com/ultralytics/ultralytics)  
 
-1. Install dependencies:
+---
+
+## 🌐 Live Deployment
+🔴 **Try it right now:**  
+👉 [BULLSEYE Live Cattle Detection](https://bullseye-live-cattle-detection.onrender.com/)  
+
+Runs directly in your browser with **real-time cow detection & breed recognition**.
+
+---
+
+## ✨ Features
+
+- 🖥 **Web-based Interface**: Real-time detection in the browser  
+- 🤖 **YOLOv8-powered detection**: State-of-the-art object detection for cows  
+- 🧬 **Hybrid DL Breed Classifier**: Classifies 40+ Indian cattle & buffalo breeds  
+- 🎥 **Multiple Input Modes**: Webcam, video file, or image batch  
+- 📊 **Explainable AI**: LIME & Grad-CAM ready for model interpretability  
+- 🖼 **Dark Tech UI**: Modern interface for immersive experience  
+- ⚡ **Optimized**: Lightweight deployment, works on Render Cloud  
+
+---
+
+## 🛠 Setup (Local Development)
+
+1. Clone the repository:
 ```bash
+git clone https://github.com/ashwin-101/bullseye-cow-detection.git
+cd bullseye-cow-detection
+
+
+2. Install dependencies:
+
 pip install -r requirements.txt
-```
 
-2. The system will automatically download YOLOv8 model on first run.
 
-## Usage
+3. Run the Flask App:
 
-### Web Applications (Recommended)
-
-#### Real-time Flask App (Inspired by original)
-```bash
 python realtime_app.py
-```
-Then open http://localhost:5000 in your browser
 
-#### Streamlit App (Easy to use)
-```bash
+
+Open http://localhost:5000
+ in your browser.
+
+Or launch the Streamlit App:
+
 streamlit run web_app.py
-```
-Then open http://localhost:8501 in your browser
 
-### Command Line Options
 
-#### Live Detection (Webcam)
-```bash
+Open http://localhost:8501
+ in your browser.
+
+
+🎮 Usage
+🔴 Real-Time Flask App
+python realtime_app.py
+
+
+➡ Browser auto-loads realtime.html UI for live detection.
+
+🟢 Streamlit App
+streamlit run web_app.py
+
+
+➡ Upload images or use webcam easily.
+
+📹 Live Detection (Webcam)
 python live_detection.py
-```
 
-#### Live Detection (Video File)
-```bash
+🎞 Live Detection (Video File)
 python live_detection.py --source path/to/video.mp4
-```
 
-#### Batch Processing
-```bash
+📁 Batch Processing
 python batch_detection.py --input_dir path/to/images --output_dir results
-```
 
-## Features
 
-- **Web-based UI**: Modern browser interface with real-time processing
-- **Streamlit App**: Easy-to-use interface with image upload, webcam, and batch processing
-- **Flask App**: Real-time webcam detection with WebSocket communication
-- Real-time cow detection using YOLOv8
-- Breed classification using pre-trained Hybrid DL model (150x150 input)
-- Multiple cow detection and classification in single frame
-- Support for webcam and video file input
-- Live results display with breed confidence scores
-- Batch processing for multiple images
+System Architecture (High-Level)
 
-## Model Files
+ ┌────────────┐       ┌──────────────┐       ┌─────────────┐
+ │  Camera /  │       │   YOLOv8     │       │  Breed      │
+ │  Upload    ├──────▶│  Cow Detector├──────▶│ Classifier  │
+ └────────────┘       └──────────────┘       └─────────────┘
+        │                       │                      │
+        └─────► WebSocket ──────┴───────► Real-time UI │
 
-- YOLOv8: Downloads automatically
-- Breed Classifier: Uses `classifier.h5`
 
-## Controls
+⭐ If you like this project, don’t forget to star the repo on GitHub!
 
-- Press 'q' to quit live detection
-- Adjust confidence thresholds in `cow_detector.py` if needed
+
+---
