@@ -36,12 +36,6 @@ logging.basicConfig(level=logging.INFO)
 app.logger.setLevel(logging.INFO)
 
 
-@app.before_first_request
-def announce_startup():
-    # This ensures Render logs show the service started and bound to a port.
-    app.logger.info("Server starting up and ready to accept requests.")
-
-
 @app.route('/')
 def index():
     return render_template('realtime.html')
@@ -163,6 +157,6 @@ def handle_video_frame(data):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    # Ensure the app binds to the environment port so Render detects it
-    app.logger.info(f"Starting SocketIO server on 0.0.0.0:{port}")
+    app.logger.info(f"Server starting up and ready to accept requests on port {port}")
     socketio.run(app, debug=False, host="0.0.0.0", port=port)
+
