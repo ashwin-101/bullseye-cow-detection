@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cow Detection & Breed Classification</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .controls { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .content { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .video-section, .results-section { background: white; padding: 20px; border-radius: 10px; }
+        .btn { padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .video-container { text-align: center; }
+        #videoElement, #resultImage { max-width: 100%; height: auto; border-radius: 5px; }
+        .results-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .results-table th, .results-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        .status { padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .file-input { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🐄 Cow Detection & Breed Classification</h1>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" onclick="loadModel()">Load Model</button>
+            <button class="btn btn-success" onclick="startWebcam()">Start Webcam</button>
+            <button class="btn btn-danger" onclick="stopWebcam()">Stop Webcam</button>
+            <input type="file" id="imageInput" accept="image/*" class="file-input" onchange="uploadImage()">
+            <div id="status"></div>
+        </div>
+        
+        <div class="content">
+            <div class="video-section">
+                <h3>Video Feed</h3>
+                <div class="video-container">
+                    <video id="videoElement" autoplay muted style="display: none;"></video>
+                    <img id="resultImage" style="display: none;">
+                    <p id="videoStatus">No video feed</p>
+                </div>
+            </div>
+            
+            <div class="results-section">
+                <h3>Detection Results</h3>
+                <div id="resultsContainer">
+                    <p>No detections yet</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let videoStream = null;
+        let isStreaming = false;
+        
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        function loadModel() {
+            fetch('/load_model', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    showStatus(data.message, data.status === 'success' ? 'success' : 'error');
+                });
+        }
+        
+        async function startWebcam() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const video = document.getElementById('videoElement');
+                video.srcObject = videoStream;
+                video.style.display = 'block';
+                document.getElementById('videoStatus').style.display = 'none';
+                
+                isStreaming = true;
+                processVideoStream();
+                showStatus('Webcam started');
+            } catch (error) {
+                showStatus('Error accessing webcam: ' + error.message, 'error');
+            }
+        }
+        
+        function stopWebcam() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                document.getElementById('videoElement').style.display = 'none';
+                document.getElementById('resultImage').style.display = 'none';
+                document.getElementById('videoStatus').style.display = 'block';
+                document.getElementById('videoStatus').textContent = 'Webcam stopped';
+                isStreaming = false;
+                showStatus('Webcam stopped');
+            }
+        }
+        
+        function processVideoStream() {
+            if (!isStreaming) return;
+            
+            const video = document.getElementById('videoElement');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            
+            const imageData = canvas.toDataURL('image/jpeg');
+            socket.emit('video_frame', { image: imageData });
+            
+            setTimeout(processVideoStream, 500); // Process every 500ms
+        }
+        
+        function uploadImage() {
+            const input = document.getElementById('imageInput');
+            const file = input.files[0];
+            
+            if (file) {
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                fetch('/detect_image', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const img = document.getElementById('resultImage');
+                        img.src = 'data:image/jpeg;base64,' + data.image;
+                        img.style.display = 'block';
+                        document.getElementById('videoElement').style.display = 'none';
+                        document.getElementById('videoStatus').style.display = 'none';
+                        
+                        displayResults(data.results);
+                        showStatus('Image processed successfully');
+                    } else {
+                        showStatus(data.message, 'error');
+                    }
+                });
+            }
+        }
+        
+        function displayResults(results) {
+            const container = document.getElementById('resultsContainer');
+            
+            if (results.length === 0) {
+                container.innerHTML = '<p>No cows detected</p>';
+                return;
+            }
+            
+            let html = `<table class="results-table">
+                <tr><th>Cow #</th><th>Breed</th><th>Confidence</th></tr>`;
+            
+            results.forEach((result, index) => {
+                html += `<tr>
+                    <td>Cow ${index + 1}</td>
+                    <td>${result.breed}</td>
+                    <td>${result.breed_conf.toFixed(2)}</td>
+                </tr>`;
+            });
+            
+            html += '</table>';
+            container.innerHTML = html;
+        }
+        
+        socket.on('detection_result', function(data) {
+            if (data.status === 'success') {
+                const img = document.getElementById('resultImage');
+                img.src = data.image;
+                img.style.display = 'block';
+                displayResults(data.results);
+            } else {
+                showStatus(data.message, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

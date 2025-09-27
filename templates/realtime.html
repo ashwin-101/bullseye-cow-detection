@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐄 Real-time Cow Detection & Breed Classification</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600;700&display=swap');
+
+        :root {
+            --background-dark: #0a0a0f;
+            --background-light: #10101a;
+            --border-color: rgba(0, 163, 255, 0.2);
+            --accent-color: #00A3FF;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --font-primary: 'Rajdhani', sans-serif;
+            --font-secondary: 'Orbitron', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-primary);
+            background-color: var(--background-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* --- Splash Screen Loader --- */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            transition: opacity 0.8s ease-out, visibility 0.8s;
+        }
+
+        body.loaded #splash-screen {
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        .bullseye-loader {
+            font-family: var(--font-secondary);
+            font-size: 3em;
+            font-weight: 700;
+            color: var(--accent-color);
+            letter-spacing: 3px;
+            display: flex;
+        }
+        
+        .bullseye-loader .letter {
+            display: inline-block;
+            animation: wave 2s infinite ease-in-out;
+        }
+        
+        .bullseye-loader .letter:nth-child(1) { animation-delay: 0s; }
+        .bullseye-loader .letter:nth-child(2) { animation-delay: 0.1s; }
+        .bullseye-loader .letter:nth-child(3) { animation-delay: 0.2s; }
+        .bullseye-loader .letter:nth-child(4) { animation-delay: 0.3s; }
+        .bullseye-loader .letter:nth-child(5) { animation-delay: 0.4s; }
+        .bullseye-loader .letter:nth-child(6) { animation-delay: 0.5s; }
+        .bullseye-loader .letter:nth-child(7) { animation-delay: 0.6s; }
+        .bullseye-loader .letter:nth-child(8) { animation-delay: 0.7s; }
+        
+        @keyframes wave {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-15px); }
+        }
+
+        /* --- Main Content --- */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            opacity: 0;
+            transition: opacity 0.8s ease-in;
+        }
+
+        body.loaded .main-container {
+            opacity: 1;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-family: var(--font-secondary);
+            font-size: 3em;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
+        .logo span { color: var(--accent-color); }
+        .subtitle {
+            font-size: 1.2em;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+        
+        .content-wrapper {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            align-items: flex-start;
+        }
+
+        /* --- Left Column: Video Feed --- */
+        #video-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            background: var(--background-light);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        video, #resultImage {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        #videoStatus {
+            font-family: var(--font-secondary);
+            font-size: 1.2em;
+            color: var(--text-secondary);
+        }
+
+        /* --- Right Column: Controls & Data --- */
+        .controls-data-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        
+        .control-panel, .status-panel, .results-panel {
+            background: var(--background-light);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .panel-title {
+            font-family: var(--font-secondary);
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: var(--text-primary);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 12px 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            font-family: var(--font-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+            text-align: left;
+            display: flex;
+            align-items: center;
+        }
+        .btn:hover { background-color: var(--accent-color); border-color: var(--accent-color); color: var(--background-dark); }
+        .btn::before { content: '›'; margin-right: 10px; font-size: 1.5em; line-height: 1; }
+        
+        #status, #counter-container {
+            font-size: 1.1em;
+            font-family: var(--font-secondary);
+        }
+        #status { color: var(--text-secondary); }
+        #counter-container { color: var(--accent-color); }
+        
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .results-table th, .results-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .results-table th {
+            color: var(--accent-color);
+            font-weight: 700;
+        }
+        .results-table tr:last-child td { border-bottom: none; }
+
+        /* --- Gallery Section --- */
+        .gallery-section { margin-top: 50px; }
+        .section-title {
+            text-align: center;
+            font-family: var(--font-secondary);
+            font-size: 1.8em;
+            margin-bottom: 30px;
+            color: var(--text-primary);
+        }
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .gallery-item {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .gallery-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 163, 255, 0.1);
+        }
+        .gallery-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+        .gallery-item .label {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            background: linear-gradient(to top, rgba(16, 16, 26, 0.9), transparent);
+            color: var(--text-primary);
+            padding: 10px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        /* --- Loading Spinner (for model) --- */
+        .loading-spinner { display: none; /* JS will handle this */ }
+    </style>
+</head>
+<body>
+    
+    <div id="splash-screen">
+        <div class="bullseye-loader">
+            <span class="letter">B</span>
+            <span class="letter">U</span>
+            <span class="letter">L</span>
+            <span class="letter">L</span>
+            <span class="letter">S</span>
+            <span class="letter">E</span>
+            <span class="letter">Y</span>
+            <span class="letter">E</span>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <header>
+            <div class="logo">BULLS<span>EYE</span></div>
+            <div class="subtitle">AI-Powered Bovine Detection & Classification System</div>
+        </header>
+
+        <div class="content-wrapper">
+            <div id="video-container">
+                <video id="video" autoplay muted playsinline style="display: none;"></video>
+                <img id="resultImage" style="display: none;">
+                <div id="videoStatus">NO VIDEO FEED</div>
+            </div>
+
+            <div class="controls-data-wrapper">
+                <div class="control-panel">
+                    <h2 class="panel-title">SYSTEM CONTROLS</h2>
+                    <div class="controls">
+                        <button class="btn" onclick="loadModel()">Load Model</button>
+                        <button class="btn" onclick="startWebcam()">Activate Cam</button>
+                        <button class="btn" onclick="stopWebcam()">Terminate</button>
+                    </div>
+                </div>
+
+                <div class="status-panel">
+                    <h2 class="panel-title">LIVE STATUS</h2>
+                    <div id="status">Ready to load models</div>
+                    <div id="counter-container" style="margin-top: 10px;">Cows Detected: 0</div>
+                </div>
+
+                <div class="results-panel" id="resultsContainer" style="display: none;">
+                    <h2 class="panel-title">TARGET ANALYSIS</h2>
+                    <table class="results-table" id="resultsTable">
+                        <thead>
+                            <tr><th>TARGET ID</th><th>BREED</th><th>ACCURACY</th></tr>
+                        </thead>
+                        <tbody id="resultsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery-section">
+            <h2 class="section-title">ACQUISITION ARCHIVE</h2>
+            <div class="gallery" id="gallery"></div>
+        </div>
+    </div>
+    
+    <div class="loading-spinner" id="loadingSpinner">
+        </div>
+
+    <script>
+        // --- Splash Screen Logic ---
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.body.classList.add('loaded');
+            }, 2500); // 2.5 second delay
+        });
+
+        // --- ALL ORIGINAL APPLICATION LOGIC (UNCHANGED) ---
+        const socket = io();
+        let videoStream = null;
+        let isStreaming = false;
+        let cowCount = 0;
+
+        function showLoading() {
+            document.getElementById('status').textContent = 'Loading models...';
+            document.getElementById('status').style.color = 'var(--accent-color)';
+        }
+
+        function hideLoading() {
+            // Corresponding hiding logic
+        }
+
+        function loadModel() {
+            showLoading();
+            fetch('/load_model', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.status === 'success') {
+                        document.getElementById('status').textContent = data.message;
+                        document.getElementById('status').style.color = 'var(--accent-color)';
+                    } else {
+                        document.getElementById('status').textContent = data.message;
+                        document.getElementById('status').style.color = '#ff4d4d';
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    document.getElementById('status').textContent = 'CRITICAL ERROR: CONNECTION FAILED';
+                    document.getElementById('status').style.color = '#ff4d4d';
+                });
+        }
+
+        async function startWebcam() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: 640, height: 480 } 
+                });
+                const video = document.getElementById('video');
+                video.srcObject = videoStream;
+                video.style.display = 'block';
+                document.getElementById('videoStatus').style.display = 'none';
+                document.getElementById('resultImage').style.display = 'none';
+                
+                isStreaming = true;
+                document.getElementById('status').textContent = 'Webcam started - Processing frames...';
+                document.getElementById('status').style.color = 'var(--accent-color)';
+                processVideoStream();
+            } catch (error) {
+                document.getElementById('status').textContent = 'Error accessing webcam: ' + error.message;
+                document.getElementById('status').style.color = '#ff4d4d';
+            }
+        }
+
+        function stopWebcam() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                document.getElementById('video').style.display = 'none';
+                document.getElementById('resultImage').style.display = 'none';
+                document.getElementById('videoStatus').style.display = 'flex';
+                isStreaming = false;
+                document.getElementById('status').textContent = 'Webcam stopped';
+                document.getElementById('status').style.color = 'var(--text-secondary)';
+            }
+        }
+
+        function processVideoStream() {
+            if (!isStreaming) return;
+            
+            const video = document.getElementById('video');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            
+            const imageData = canvas.toDataURL('image/jpeg');
+            socket.emit('video_frame', { image: imageData });
+            
+            setTimeout(processVideoStream, 500);
+        }
+
+        function displayResults(results) {
+            const resultsContainer = document.getElementById('resultsContainer');
+            const resultsBody = document.getElementById('resultsBody');
+            
+            if (results.length === 0) {
+                resultsContainer.style.display = 'none';
+                return;
+            }
+            
+            resultsContainer.style.display = 'block';
+            resultsBody.innerHTML = '';
+            
+            results.forEach((result, index) => {
+                const row = resultsBody.insertRow();
+                row.insertCell(0).textContent = `Cow ${index + 1}`;
+                row.insertCell(1).textContent = result.breed;
+                row.insertCell(2).textContent = result.breed_conf.toFixed(2);
+            });
+            
+            document.getElementById('counter-container').textContent = `Cows Detected: ${results.length}`;
+        }
+
+        function captureDetectedCows(results, imageData) {
+            if (results.length === 0) return;
+            
+            const gallery = document.getElementById('gallery');
+            
+            // Only add the first detected cow to avoid flooding the gallery with identical frames
+            const result = results[0]; 
+            
+            const galleryItem = document.createElement('div');
+            galleryItem.className = 'gallery-item';
+            
+            const img = document.createElement('img');
+            img.src = imageData;
+            galleryItem.appendChild(img);
+            
+            const label = document.createElement('div');
+            label.className = 'label';
+            label.textContent = `${result.breed} (${result.breed_conf.toFixed(2)})`;
+            galleryItem.appendChild(label);
+            
+            // Add the new item to the beginning of the gallery
+            gallery.prepend(galleryItem);
+        }
+
+        socket.on('detection_result', function(data) {
+            if (data.status === 'success') {
+                const img = document.getElementById('resultImage');
+                img.src = data.image;
+                img.style.display = 'block';
+                
+                displayResults(data.results);
+                
+                if (data.results.length > 0) {
+                    captureDetectedCows(data.results, data.image);
+                }
+            } else {
+                document.getElementById('status').textContent = 'SYSTEM ERROR: ' + data.message.toUpperCase();
+                document.getElementById('status').style.color = '#ff4d4d';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐄 Real-time Cow Detection & Breed Classification</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh; overflow-x: hidden; position: relative;
+        }
+        
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 20% 80%, #00ff41 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, #ff0080 0%, transparent 50%),
+                        radial-gradient(circle at 40% 40%, #0080ff 0%, transparent 50%);
+            opacity: 0.1; z-index: -1; animation: bgShift 10s ease-in-out infinite alternate;
+        }
+        
+        @keyframes bgShift { 0% { transform: scale(1) rotate(0deg); } 100% { transform: scale(1.1) rotate(5deg); } }
+        
+        .main-container { display: flex; flex-direction: column; align-items: center; padding: 20px; position: relative; z-index: 1; }
+        
+        .logo-container {
+            display: flex; align-items: center; justify-content: center; margin-bottom: 30px;
+            animation: logoGlow 2s ease-in-out infinite alternate;
+        }
+        
+        .bullseye-logo {
+            font-family: 'Orbitron', monospace; font-size: 4em; font-weight: 900;
+            background: linear-gradient(45deg, #0849ca, #ff0080, #0080ff, #bd0454);
+            background-size: 300% 300%; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            animation: textShine 3s ease-in-out infinite; text-shadow: 0 0 30px rgba(19, 121, 247, 0.5);
+            position: relative;
+        }
+        
+        .bullseye-logo::before {
+            content: '🎯'; position: absolute; left: -60px; top: 50%; transform: translateY(-50%);
+            font-size: 0.8em; animation: targetSpin 4s linear infinite;
+        }
+        
+        @keyframes logoGlow { 0% { filter: drop-shadow(0 0 20px rgba(4, 87, 176, 0.3)); } 100% { filter: drop-shadow(0 0 40px rgba(149, 7, 210, 0.5)); } }
+        @keyframes textShine { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        @keyframes targetSpin { 0% { transform: translateY(-50%) rotate(0deg); } 100% { transform: translateY(-50%) rotate(360deg); } }
+        
+        .subtitle {
+            color: #00ff41; font-size: 1.4em; font-weight: 300; text-align: center;
+            margin-bottom: 40px; opacity: 0.8; letter-spacing: 2px;
+        }
+        
+        .container {
+            background: rgba(0,0,0,0.8); border: 1px solid rgba(0,255,65,0.3);
+            border-radius: 20px; padding: 30px; backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        
+        #video-container {
+            position: relative; width: 640px; height: 480px; margin: 20px 0;
+            border: 2px solid #00ff41; border-radius: 15px; overflow: hidden;
+            box-shadow: 0 0 30px rgba(0,255,65,0.3), inset 0 0 20px rgba(0,0,0,0.5);
+            background: radial-gradient(circle at center, #1a1a2e, #0c0c0c);
+        }
+        
+        video, #resultImage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 13px; }
+        
+        .controls { margin: 20px 0; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+        
+        .btn {
+            padding: 15px 30px; border: 2px solid transparent; border-radius: 30px;
+            cursor: pointer; font-size: 16px; font-weight: 600; font-family: 'Rajdhani', sans-serif;
+            transition: all 0.3s ease; position: relative; overflow: hidden;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        
+        .btn::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s; z-index: 1;
+        }
+        
+        .btn:hover::before { left: 100%; }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #0080ff, #0040ff);
+            border-color: #0080ff; color: white;
+            box-shadow: 0 0 20px rgba(0,128,255,0.3);
+        }
+        
+        .btn-success {
+            background: linear-gradient(45deg, #00ff41, #00cc33);
+            border-color: #00ff41; color: #000;
+            box-shadow: 0 0 20px rgba(0,255,65,0.3);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(45deg, #ff0080, #cc0066);
+            border-color: #ff0080; color: white;
+            box-shadow: 0 0 20px rgba(255,0,128,0.3);
+        }
+        
+        .btn:hover { transform: translateY(-3px) scale(1.05); }
+        
+        #status {
+            margin: 20px 0; font-size: 1.4em; font-weight: 400; text-align: center;
+            padding: 15px 25px; border-radius: 15px; color: #00ff41;
+            background: rgba(0,255,65,0.1); border: 1px solid rgba(0,255,65,0.3);
+            font-family: 'Orbitron', monospace;
+        }
+        
+        #counter-container {
+            font-size: 1.3em; margin: 15px 0; text-align: center; color: #ff0080;
+            font-weight: 600; text-shadow: 0 0 10px rgba(255,0,128,0.5);
+        }
+        
+        .results-table {
+            width: 100%; max-width: 700px; border-collapse: collapse; margin: 25px 0;
+            background: rgba(0,0,0,0.8); border-radius: 15px; overflow: hidden;
+            border: 1px solid rgba(0,255,65,0.3);
+        }
+        
+        .results-table th, .results-table td { padding: 15px; text-align: center; color: #fff; }
+        
+        .results-table th {
+            background: linear-gradient(45deg, #00ff41, #00cc33);
+            color: #000; font-weight: 700; font-size: 1.1em;
+        }
+        
+        .results-table tr:nth-child(even) { background: rgba(0,255,65,0.05); }
+        .results-table tr:hover { background: rgba(0,255,65,0.1); transform: scale(1.02); }
+        
+        .gallery {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 25px; margin: 30px 0; max-width: 1200px;
+        }
+        
+        .gallery-item {
+            position: relative; border-radius: 15px; overflow: hidden;
+            border: 2px solid rgba(0,255,65,0.3); transition: all 0.3s ease;
+            background: rgba(0,0,0,0.8);
+        }
+        
+        .gallery-item:hover {
+            transform: translateY(-10px) scale(1.05);
+            border-color: #00ff41; box-shadow: 0 20px 40px rgba(0,255,65,0.2);
+        }
+        
+        .gallery-item img { width: 100%; height: 180px; object-fit: cover; }
+        
+        .gallery-item .label {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            color: #00ff41; padding: 12px; font-size: 14px; font-weight: 600;
+        }
+        
+        .section-title {
+            color: #00ff41; font-size: 2.2em; margin: 40px 0 20px; text-align: center;
+            font-weight: 700; font-family: 'Orbitron', monospace;
+            text-shadow: 0 0 20px rgba(0,255,65,0.3);
+        }
+        
+        #videoStatus {
+            display: flex; align-items: center; justify-content: center; height: 100%;
+            color: #00ff41; font-size: 1.3em; font-weight: 500;
+            font-family: 'Orbitron', monospace;
+        }
+        
+        .loading-spinner {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 1000; background: rgba(0,0,0,0.9); padding: 40px; border-radius: 20px;
+            border: 2px solid #00ff41;
+        }
+        
+        .spinner {
+            width: 60px; height: 60px; border: 4px solid rgba(0,255,65,0.3);
+            border-top: 4px solid #00ff41; border-radius: 50%;
+            animation: spin 1s linear infinite; margin: 0 auto 20px;
+        }
+        
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .loading-text {
+            color: #00ff41; text-align: center; font-family: 'Orbitron', monospace;
+            font-size: 1.2em; animation: pulse 1.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes pulse { 0% { opacity: 0.6; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="logo-container">
+            <div class="bullseye-logo">BULLSEYE</div>
+        </div>
+        <div class="subtitle">AI-Powered Bovine Detection & Classification System</div>
+        
+        <div class="container">
+            <div class="controls">
+                <button class="btn btn-primary" onclick="loadModel()">⚡ Initialize Model</button>
+                <button class="btn btn-success" onclick="startWebcam()">🔴 Activate Scanner</button>
+                <button class="btn btn-danger" onclick="stopWebcam()">⏹️ Terminate</button>
+            </div>
+            
+            <div id="video-container">
+                <video id="video" autoplay muted playsinline style="display: none;"></video>
+                <img id="resultImage" style="display: none;">
+                <div id="videoStatus">SYSTEM STANDBY</div>
+            </div>
+            
+            <div id="status">AWAITING NEURAL NETWORK INITIALIZATION</div>
+            <div id="counter-container">TARGETS ACQUIRED: 0</div>
+            
+            <table class="results-table" id="resultsTable" style="display: none;">
+                <thead>
+                    <tr><th>🎯 TARGET</th><th>🧬 BREED CLASSIFICATION</th><th>📊 ACCURACY</th><th>🔍 DETECTION</th></tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+        
+        <h2 class="section-title">ACQUISITION ARCHIVE</h2>
+        <div class="gallery" id="gallery"></div>
+    </div>
+    
+    <div class="loading-spinner" id="loadingSpinner">
+        <div class="spinner"></div>
+        <div class="loading-text">INITIALIZING NEURAL NETWORKS...</div>
+    </div>
+
+    <script>
+        const socket = io();
+        let videoStream = null;
+        let isStreaming = false;
+        let cowCount = 0;
+        
+        function showLoading() {
+            document.getElementById('loadingSpinner').style.display = 'block';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loadingSpinner').style.display = 'none';
+        }
+        
+        function loadModel() {
+            showLoading();
+            document.getElementById('status').textContent = 'NEURAL NETWORK INITIALIZATION IN PROGRESS...';
+            
+            fetch('/load_model', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.status === 'success') {
+                        document.getElementById('status').textContent = 'AI SYSTEMS ONLINE - READY FOR DEPLOYMENT';
+                        document.getElementById('status').style.color = '#00ff41';
+                    } else {
+                        document.getElementById('status').textContent = 'SYSTEM ERROR: ' + data.message.toUpperCase();
+                        document.getElementById('status').style.color = '#ff0080';
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    document.getElementById('status').textContent = 'CRITICAL ERROR: CONNECTION FAILED';
+                    document.getElementById('status').style.color = '#ff0080';
+                });
+        }
+        
+        async function startWebcam() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: 640, height: 480 } 
+                });
+                const video = document.getElementById('video');
+                video.srcObject = videoStream;
+                video.style.display = 'block';
+                document.getElementById('videoStatus').style.display = 'none';
+                
+                isStreaming = true;
+                document.getElementById('status').textContent = 'SCANNER ACTIVE - ANALYZING TARGETS...';
+                document.getElementById('status').style.color = '#00ff41';
+                document.getElementById('videoStatus').textContent = 'LIVE FEED ACTIVE';
+                processVideoStream();
+            } catch (error) {
+                document.getElementById('status').textContent = 'SCANNER ERROR: ' + error.message.toUpperCase();
+                document.getElementById('status').style.color = '#ff0080';
+            }
+        }
+        
+        function stopWebcam() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                document.getElementById('video').style.display = 'none';
+                document.getElementById('resultImage').style.display = 'none';
+                document.getElementById('videoStatus').style.display = 'flex';
+                document.getElementById('videoStatus').textContent = 'SYSTEM STANDBY';
+                isStreaming = false;
+                document.getElementById('status').textContent = 'SCANNER DEACTIVATED';
+                document.getElementById('status').style.color = '#666';
+            }
+        }
+        
+        function processVideoStream() {
+            if (!isStreaming) return;
+            
+            const video = document.getElementById('video');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            
+            const imageData = canvas.toDataURL('image/jpeg');
+            socket.emit('video_frame', { image: imageData });
+            
+            setTimeout(processVideoStream, 500);
+        }
+        
+        function displayResults(results) {
+            const resultsTable = document.getElementById('resultsTable');
+            const resultsBody = document.getElementById('resultsBody');
+            
+            if (results.length === 0) {
+                resultsTable.style.display = 'none';
+                return;
+            }
+            
+            resultsTable.style.display = 'table';
+            resultsBody.innerHTML = '';
+            
+            results.forEach((result, index) => {
+                const row = resultsBody.insertRow();
+                row.insertCell(0).textContent = `TARGET-${String(index + 1).padStart(3, '0')}`;
+                row.insertCell(1).textContent = result.breed.toUpperCase();
+                row.insertCell(2).textContent = (result.breed_conf * 100).toFixed(1) + '%';
+                row.insertCell(3).textContent = (result.detection_conf * 100).toFixed(1) + '%';
+            });
+            
+            document.getElementById('counter-container').textContent = `TARGETS ACQUIRED: ${results.length}`;
+        }
+        
+        function captureDetectedCows(results, imageData) {
+            if (results.length === 0) return;
+            
+            const gallery = document.getElementById('gallery');
+            
+            results.forEach((result, index) => {
+                cowCount++;
+                
+                const galleryItem = document.createElement('div');
+                galleryItem.className = 'gallery-item';
+                
+                const img = document.createElement('img');
+                img.src = imageData;
+                galleryItem.appendChild(img);
+                
+                const label = document.createElement('div');
+                label.className = 'label';
+                label.textContent = `${result.breed.toUpperCase()} [${(result.breed_conf * 100).toFixed(1)}%]`;
+                galleryItem.appendChild(label);
+                
+                gallery.appendChild(galleryItem);
+            });
+        }
+        
+        socket.on('detection_result', function(data) {
+            if (data.status === 'success') {
+                const img = document.getElementById('resultImage');
+                img.src = data.image;
+                img.style.display = 'block';
+                
+                displayResults(data.results);
+                
+                if (data.results.length > 0) {
+                    captureDetectedCows(data.results, data.image);
+                }
+            } else {
+                document.getElementById('status').textContent = 'SYSTEM ERROR: ' + data.message.toUpperCase();
+                document.getElementById('status').style.color = '#ff0080';
+            }
+        });
+    </script>
+</body>
+</html>
