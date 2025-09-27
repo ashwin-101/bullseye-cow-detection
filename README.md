@@ -34,20 +34,20 @@ Runs directly in your browser with **real-time cow detection & breed recognition
 ## 🛠 Setup (Local Development)
 
 1. Clone the repository:
-```bash
-git clone https://github.com/ashwin-101/bullseye-cow-detection.git
-cd bullseye-cow-detection
-
+ ```bash
+ git clone https://github.com/ashwin-101/bullseye-cow-detection.git
+ cd bullseye-cow-detection
+ ```
 
 2. Install dependencies:
-
-pip install -r requirements.txt
-
+ ```bash
+ pip install -r requirements.txt
+ ```
 
 3. Run the Flask App:
-
-python realtime_app.py
-
+ ```bash
+ python realtime_app.py
+ ```
 
 Open http://localhost:5000
  in your browser.
@@ -63,26 +63,31 @@ Open http://localhost:8501
 
 🎮 Usage
 🔴 Real-Time Flask App
-python realtime_app.py
-
+  ```bash
+  python realtime_app.py
+  ```
 
 ➡ Browser auto-loads realtime.html UI for live detection.
 
 🟢 Streamlit App
-streamlit run web_app.py
-
+ ```bash
+ streamlit run web_app.py
+ ```
 
 ➡ Upload images or use webcam easily.
 
 📹 Live Detection (Webcam)
-python live_detection.py
-
+ ```bash
+ python live_detection.py
+ ```
 🎞 Live Detection (Video File)
-python live_detection.py --source path/to/video.mp4
-
+ ```bash
+ python live_detection.py --source path/to/video.mp4
+ ```
 📁 Batch Processing
-python batch_detection.py --input_dir path/to/images --output_dir results
-
+ ```bash
+ python batch_detection.py --input_dir path/to/images --output_dir results
+ ```
 
 System Architecture (High-Level)
 
