@@ -53,9 +53,9 @@ Open http://localhost:5000
  in your browser.
 
 Or launch the Streamlit App:
-
-streamlit run web_app.py
-
+ ```bash
+ streamlit run web_app.py
+ ```
 
 Open http://localhost:8501
  in your browser.
@@ -90,14 +90,14 @@ Open http://localhost:8501
  ```
 
 System Architecture (High-Level)
-
+```
  ┌────────────┐       ┌──────────────┐       ┌─────────────┐
  │  Camera /  │       │   YOLOv8     │       │  Breed      │
  │  Upload    ├──────▶│  Cow Detector├──────▶│ Classifier  │
  └────────────┘       └──────────────┘       └─────────────┘
         │                       │                      │
         └─────► WebSocket ──────┴───────► Real-time UI │
-
+```
 
 ⭐ If you like this project, don’t forget to star the repo on GitHub!
 
