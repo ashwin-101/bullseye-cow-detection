@@ -30,7 +30,7 @@ Runs directly in your browser with **real-time cow detection & breed recognition
 - ⚡ **Optimized**: Lightweight deployment, works on Render Cloud  
 
 ---
-
+<!--
 ## 🛠 Setup (Local Development)
 
 1. Clone the repository:
@@ -88,7 +88,7 @@ Open http://localhost:8501
  ```bash
  python batch_detection.py --input_dir path/to/images --output_dir results
  ```
-
+-->
 System Architecture (High-Level)
 ```
  ┌────────────┐       ┌──────────────┐       ┌─────────────┐
